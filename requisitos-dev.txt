@@ -1,0 +1,3 @@
+-r requisitos.txt
+pytest
+pillow   # so usado pra gerar o icone.ico (nao e' necessario pra rodar o programa)
