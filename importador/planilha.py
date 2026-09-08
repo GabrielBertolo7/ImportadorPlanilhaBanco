@@ -26,16 +26,17 @@ def normalizar_nome_coluna(nome: object) -> str:
 def resolver_nomes_duplicados(colunas: Iterable[object]) -> list[str]:
     """Se a planilha tiver duas colunas com o mesmo nome (ex: duas 'id'), numera
     a partir da segunda ocorrencia, pra nao colidir no banco."""
-    vistos: dict[str, int] = {}
+    emitidos: set[str] = set()
     novas = []
     for coluna in colunas:
         base = normalizar_nome_coluna(coluna)
-        if base in vistos:
-            vistos[base] += 1
-            novas.append(f"{base}_{vistos[base]}")
-        else:
-            vistos[base] = 1
-            novas.append(base)
+        nome = base
+        n = 2
+        while nome in emitidos:
+            nome = f"{base}_{n}"
+            n += 1
+        emitidos.add(nome)
+        novas.append(nome)
     return novas
 
 

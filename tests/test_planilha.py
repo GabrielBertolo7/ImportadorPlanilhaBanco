@@ -25,3 +25,9 @@ def test_resolver_nomes_duplicados():
 def test_resolver_nomes_sem_duplicata_fica_igual():
     colunas = ["a", "b", "c"]
     assert resolver_nomes_duplicados(colunas) == ["a", "b", "c"]
+
+
+def test_resolver_nomes_duplicados_evita_colisao_com_sufixo_existente():
+    colunas = ["id", "id", "id_2"]
+    resultado = resolver_nomes_duplicados(colunas)
+    assert len(resultado) == len(set(resultado))
