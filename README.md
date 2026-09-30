@@ -8,6 +8,22 @@ nada fixo de cliente, banco ou tabela.
 Este é o repositório de desenvolvimento. O guia de uso para quem só vai
 **rodar** o programa está em [`GUIA_DE_USO.md`](GUIA_DE_USO.md).
 
+## Em resumo
+
+**Problema:** levar os dados de uma planilha Excel ou CSV para um banco MySQL/MariaDB costuma pedir código
+ou ferramentas pesadas, e é fácil errar o tipo de cada coluna (data, decimal, CEP com zero à esquerda, chave de nota fiscal).
+
+**Solução:** uma janela simples em que você escolhe a planilha, informa o banco e clica em **Importar**. A ferramenta
+detecta sozinha o tipo de cada coluna, cria ou altera a tabela e grava os dados.
+
+**Destaques**
+
+- Detecção automática de tipos, com casos traiçoeiros tratados como texto (CEP com zero à esquerda, chave de NF-e de 44 dígitos).
+- Regras de tipo independentes e testadas (pytest), sem precisar de banco rodando.
+- Pacote pronto para quem não programa: instala o Python sozinho e abre com duplo clique (veja o [guia de uso](GUIA_DE_USO.md)).
+
+![Tela principal do importador (dados de exemplo)](docs/tela-principal.png)
+
 ## Arquitetura
 
 ```

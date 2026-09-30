@@ -24,7 +24,7 @@ def test_cep_com_zero_a_esquerda_fica_texto():
 
 
 def test_chave_nfe_de_44_digitos_fica_texto():
-    chave = "35250861531620001709550010008674471940601715"
+    chave = "35250111222333000181550010000000011000000017"
     tipo, _ = inferir_tipo_coluna(_serie([chave, chave]))
     assert tipo is TipoColuna.TEXTO
 
