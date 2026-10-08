@@ -21,6 +21,7 @@ detecta sozinha o tipo de cada coluna, cria ou altera a tabela e grava os dados.
 - Detecção automática de tipos, com casos traiçoeiros tratados como texto (CEP com zero à esquerda, chave de NF-e de 44 dígitos).
 - Regras de tipo independentes e testadas (pytest), sem precisar de banco rodando.
 - Pacote pronto para quem não programa: instala o Python sozinho e abre com duplo clique (veja o [guia de uso](GUIA_DE_USO.md)).
+- Interface em português; com a variável `IMPORTADOR_IDIOMA=en` ela abre em inglês (inclusive as mensagens de progresso).
 
 ![Tela principal do importador (dados de exemplo)](docs/tela-principal.png)
 

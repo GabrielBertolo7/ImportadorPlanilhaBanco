@@ -9,6 +9,7 @@ from typing import Callable, Union
 from . import banco
 from .config import ConfiguracaoConexao
 from .planilha import ler_planilha
+from .textos import Progresso
 from .tipos import analisar_colunas, converter_dataframe
 
 Logger = Callable[[str], None]
@@ -39,40 +40,37 @@ def importar(
     engine = banco.criar_engine(config)
     repositorio = banco.TabelaRepository(engine, tabela)
 
-    log(f"Lendo planilha: {caminho_planilha}")
+    log(Progresso.lendo_planilha(caminho_planilha))
     df = ler_planilha(caminho_planilha)
-    log(f"{len(df)} linhas e {len(df.columns)} colunas encontradas na planilha.")
+    log(Progresso.linhas_encontradas(len(df), len(df.columns)))
 
-    log("Analisando o tipo de cada coluna (numero, data ou texto)...")
+    log(Progresso.ANALISANDO_TIPOS)
     tipos = analisar_colunas(df, log=log)
 
     tabela_foi_truncada = False
     if modo is ModoImportacao.SUBSTITUIR:
         tabela_foi_truncada = repositorio.truncar()
         if tabela_foi_truncada:
-            log(f"Tabela '{tabela}' esvaziada antes de receber os dados novos.")
+            log(Progresso.tabela_esvaziada(tabela))
 
     repositorio.garantir_colunas(tipos, corrigir_tipo_existente=tabela_foi_truncada, log=log)
 
-    log("Convertendo os valores da planilha para os tipos corretos...")
+    log(Progresso.CONVERTENDO)
     df = converter_dataframe(df, tipos)
 
-    log("Enviando os dados para o banco (pode demorar em planilhas grandes)...")
+    log(Progresso.ENVIANDO)
     df.to_sql(tabela, engine, if_exists="append", index=False, chunksize=2000, method=None)
 
     total = repositorio.contar_linhas()
 
-    log("Criando índices nas colunas de id (acelera consultas e junções)...")
+    log(Progresso.CRIANDO_INDICES)
     repositorio.criar_indices_automaticos(df, log=log)
 
     # "Importacao concluida" fica por ultimo de proposito - e' o aviso final
     # pro usuario, mesmo que o processo em si (indices) ja tenha rodado antes.
-    log(f"Importacao concluida. A tabela '{tabela}' agora tem {total} linhas no total.")
+    log(Progresso.concluido(tabela, total))
 
     resultado = ResultadoImportacao(linhas_lidas=len(df), linhas_na_tabela=total)
     if modo is ModoImportacao.SUBSTITUIR and total != len(df):
-        log(
-            f"ATENCAO: a planilha tinha {len(df)} linhas mas a tabela ficou com {total}. "
-            "Confira antes de considerar concluido."
-        )
+        log(Progresso.contagem_divergente(len(df), total))
     return resultado
