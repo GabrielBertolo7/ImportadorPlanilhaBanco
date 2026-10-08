@@ -14,22 +14,40 @@ from . import servico
 from .config import ConfiguracaoConexao
 from .planilha import normalizar_nome_coluna
 from .servico import ModoImportacao
-from .textos import Dialogos, Janela, SecaoConexao, SecaoLog, SecaoPlanilha, SeletorArquivo
+from .textos import Dialogos, Janela, Progresso, SecaoConexao, SecaoLog, SecaoPlanilha, SeletorArquivo
 
 _ICONE = Path(__file__).resolve().parent / "icone.ico"
+
+
+# Paleta e fontes da interface (claro, sobrio, um unico tom de destaque).
+_COR_FUNDO = "#F4F6F8"
+_COR_CARTAO = "#FFFFFF"
+_COR_BORDA = "#E5E7EB"
+_COR_BORDA_CAMPO = "#D1D5DB"
+_COR_TEXTO = "#111827"
+_COR_SUAVE = "#6B7280"
+_COR_DESTAQUE = "#1D4ED8"
+_COR_DESTAQUE_ESCURO = "#1E40AF"
+_COR_DESTAQUE_CLARO = "#DBEAFE"
+_FONTE = "Segoe UI"
+_FONTE_LOG = ("Cascadia Mono", 9)
 
 
 class JanelaImportador(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(Janela.TITULO)
-        self.geometry("640x560")
-        self.resizable(False, False)
+        self.geometry("720x840")
+        self.minsize(640, 720)
+        self.configure(background=_COR_FUNDO)
         self._aplicar_icone()
+        self._configurar_estilo()
 
         self._fila_log: "queue.Queue[str]" = queue.Queue()
         self._caminho_planilha = tk.StringVar()
+        self._rotulo_planilha = tk.StringVar(value=SecaoPlanilha.NENHUMA_PLANILHA)
 
+        self._montar_cabecalho()
         self._montar_secao_conexao()
         self._montar_secao_planilha()
         self._montar_secao_log()
@@ -44,11 +62,75 @@ class JanelaImportador(tk.Tk):
             except tk.TclError:
                 pass  # icone e' so estetico, nao vale travar o programa por causa dele
 
+    def _configurar_estilo(self) -> None:
+        estilo = ttk.Style(self)
+        estilo.theme_use("clam")
+
+        estilo.configure(".", font=(_FONTE, 10), background=_COR_CARTAO, foreground=_COR_TEXTO)
+        estilo.configure("Fundo.TFrame", background=_COR_FUNDO)
+        estilo.configure("Cartao.TFrame", background=_COR_CARTAO)
+        estilo.configure("Rotulo.TLabel", background=_COR_CARTAO, foreground=_COR_SUAVE, font=(_FONTE, 9, "bold"))
+        estilo.configure("Arquivo.TLabel", background=_COR_CARTAO, foreground=_COR_SUAVE)
+        estilo.configure("TituloCartao.TLabel", background=_COR_CARTAO, foreground=_COR_TEXTO,
+                         font=(_FONTE, 11, "bold"))
+        estilo.configure("Passo.TLabel", background=_COR_DESTAQUE_CLARO, foreground=_COR_DESTAQUE,
+                         font=(_FONTE, 9, "bold"), padding=(7, 1), anchor="center")
+        estilo.configure("Titulo.TLabel", background=_COR_FUNDO, foreground=_COR_TEXTO, font=(_FONTE, 16, "bold"))
+        estilo.configure("Subtitulo.TLabel", background=_COR_FUNDO, foreground=_COR_SUAVE, font=(_FONTE, 10))
+
+        estilo.configure("TEntry", padding=(8, 6), fieldbackground="#FFFFFF", bordercolor=_COR_BORDA_CAMPO,
+                         lightcolor=_COR_BORDA_CAMPO, darkcolor=_COR_BORDA_CAMPO)
+        estilo.map("TEntry", bordercolor=[("focus", _COR_DESTAQUE)], lightcolor=[("focus", _COR_DESTAQUE)],
+                   darkcolor=[("focus", _COR_DESTAQUE)])
+
+        estilo.configure("TRadiobutton", background=_COR_CARTAO, foreground=_COR_TEXTO, padding=(0, 3))
+        estilo.map("TRadiobutton", background=[("active", _COR_CARTAO)],
+                   indicatorcolor=[("selected", _COR_DESTAQUE), ("!selected", "#FFFFFF")])
+
+        estilo.configure("Principal.TButton", background=_COR_DESTAQUE, foreground="#FFFFFF",
+                         bordercolor=_COR_DESTAQUE, lightcolor=_COR_DESTAQUE, darkcolor=_COR_DESTAQUE,
+                         focuscolor=_COR_DESTAQUE, font=(_FONTE, 10, "bold"), padding=(16, 9))
+        estilo.map("Principal.TButton",
+                   background=[("active", _COR_DESTAQUE_ESCURO), ("pressed", _COR_DESTAQUE_ESCURO)],
+                   bordercolor=[("active", _COR_DESTAQUE_ESCURO)])
+        estilo.configure("Secundario.TButton", background="#FFFFFF", foreground=_COR_TEXTO,
+                         bordercolor=_COR_BORDA_CAMPO, lightcolor="#FFFFFF", darkcolor="#FFFFFF",
+                         focuscolor="#FFFFFF", font=(_FONTE, 10, "bold"), padding=(14, 7))
+        estilo.map("Secundario.TButton", background=[("active", "#F3F4F6"), ("pressed", "#E5E7EB")])
+
     # montagem da tela
 
+    def _montar_cabecalho(self) -> None:
+        cabecalho = ttk.Frame(self, style="Fundo.TFrame", padding=(22, 18, 22, 6))
+        cabecalho.pack(fill="x")
+        ttk.Label(cabecalho, text=Janela.TITULO, style="Titulo.TLabel").pack(anchor="w")
+        ttk.Label(cabecalho, text=Janela.SUBTITULO, style="Subtitulo.TLabel").pack(anchor="w", pady=(2, 0))
+
+    def _criar_cartao(self, numero: str, titulo: str, expandir: bool = False) -> ttk.Frame:
+        """Cartao branco com borda fina e titulo numerado (1, 2, 3: a ordem de uso)."""
+        moldura = tk.Frame(self, background=_COR_CARTAO, highlightthickness=1,
+                           highlightbackground=_COR_BORDA, highlightcolor=_COR_BORDA)
+        moldura.pack(fill="both" if expandir else "x", expand=expandir, padx=20,
+                     pady=(10, 20 if expandir else 0))
+        conteudo = ttk.Frame(moldura, style="Cartao.TFrame", padding=(18, 14, 18, 16))
+        conteudo.pack(fill="both", expand=True)
+
+        titulo_linha = ttk.Frame(conteudo, style="Cartao.TFrame")
+        titulo_linha.pack(fill="x", pady=(0, 10))
+        ttk.Label(titulo_linha, text=numero, style="Passo.TLabel").pack(side="left")
+        ttk.Label(titulo_linha, text=titulo, style="TituloCartao.TLabel").pack(side="left", padx=(10, 0))
+        return conteudo
+
+    @staticmethod
+    def _rotulo(pai: tk.Misc, texto: str) -> ttk.Label:
+        return ttk.Label(pai, text=texto.rstrip(":"), style="Rotulo.TLabel")
+
     def _montar_secao_conexao(self) -> None:
-        quadro = ttk.LabelFrame(self, text=SecaoConexao.TITULO, padding=10)
-        quadro.pack(fill="x", padx=10, pady=(10, 5))
+        quadro = self._criar_cartao("1", SecaoConexao.TITULO)
+        grade = ttk.Frame(quadro, style="Cartao.TFrame")
+        grade.pack(fill="x")
+        grade.columnconfigure(0, weight=3, uniform="col")
+        grade.columnconfigure(1, weight=2, uniform="col")
 
         self._var_host = tk.StringVar()
         self._var_porta = tk.StringVar()
@@ -56,66 +138,63 @@ class JanelaImportador(tk.Tk):
         self._var_senha = tk.StringVar()
         self._var_banco = tk.StringVar()
 
-        campos = [
-            (SecaoConexao.ROTULO_HOST, self._var_host),
-            (SecaoConexao.ROTULO_PORTA, self._var_porta),
-            (SecaoConexao.ROTULO_USUARIO, self._var_usuario),
-            (SecaoConexao.ROTULO_SENHA, self._var_senha),
-            (SecaoConexao.ROTULO_BANCO, self._var_banco),
+        pares = [
+            ((SecaoConexao.ROTULO_HOST, self._var_host, ""), (SecaoConexao.ROTULO_PORTA, self._var_porta, "")),
+            ((SecaoConexao.ROTULO_USUARIO, self._var_usuario, ""),
+             (SecaoConexao.ROTULO_SENHA, self._var_senha, "*")),
         ]
-        for i, (rotulo, variavel) in enumerate(campos):
-            ttk.Label(quadro, text=rotulo).grid(row=i, column=0, sticky="w", pady=3)
-            mostrar = "*" if rotulo == SecaoConexao.ROTULO_SENHA else ""
-            ttk.Entry(quadro, textvariable=variavel, show=mostrar, width=40).grid(
-                row=i, column=1, sticky="we", padx=(8, 0), pady=3
-            )
-        quadro.columnconfigure(1, weight=1)
+        for linha, par in enumerate(pares):
+            for coluna, (rotulo, variavel, mostrar) in enumerate(par):
+                espaco = (0, 10) if coluna == 0 else (0, 0)
+                self._rotulo(grade, rotulo).grid(row=linha * 2, column=coluna, sticky="w", padx=espaco, pady=(4, 3))
+                ttk.Entry(grade, textvariable=variavel, show=mostrar).grid(
+                    row=linha * 2 + 1, column=coluna, sticky="we", padx=espaco
+                )
 
-        ttk.Button(quadro, text=SecaoConexao.BOTAO_TESTAR, command=self._testar_conexao).grid(
-            row=len(campos), column=0, columnspan=2, pady=(8, 0), sticky="we"
-        )
+        self._rotulo(grade, SecaoConexao.ROTULO_BANCO).grid(row=4, column=0, sticky="w", padx=(0, 10), pady=(4, 3))
+        ttk.Entry(grade, textvariable=self._var_banco).grid(row=5, column=0, sticky="we", padx=(0, 10))
+        ttk.Button(
+            grade, text=SecaoConexao.BOTAO_TESTAR, style="Secundario.TButton", command=self._testar_conexao
+        ).grid(row=5, column=1, sticky="we")
 
     def _montar_secao_planilha(self) -> None:
-        quadro = ttk.LabelFrame(self, text=SecaoPlanilha.TITULO, padding=10)
-        quadro.pack(fill="x", padx=10, pady=5)
+        quadro = self._criar_cartao("2", SecaoPlanilha.TITULO)
 
-        linha = ttk.Frame(quadro)
+        linha = ttk.Frame(quadro, style="Cartao.TFrame")
         linha.pack(fill="x")
         ttk.Button(
-            linha, text=SecaoPlanilha.BOTAO_SELECIONAR, command=self._selecionar_planilha
+            linha, text=SecaoPlanilha.BOTAO_SELECIONAR, style="Secundario.TButton",
+            command=self._selecionar_planilha,
         ).pack(side="left")
-        ttk.Label(linha, textvariable=self._caminho_planilha, foreground="#555").pack(
-            side="left", padx=8
-        )
+        ttk.Label(linha, textvariable=self._rotulo_planilha, style="Arquivo.TLabel").pack(side="left", padx=12)
 
-        linha2 = ttk.Frame(quadro)
-        linha2.pack(fill="x", pady=(10, 0))
-        ttk.Label(linha2, text=SecaoPlanilha.ROTULO_TABELA).pack(side="left")
+        self._rotulo(quadro, SecaoPlanilha.ROTULO_TABELA).pack(anchor="w", pady=(14, 3))
         self._var_tabela = tk.StringVar()
-        ttk.Entry(linha2, textvariable=self._var_tabela, width=30).pack(
-            side="left", padx=8, fill="x", expand=True
-        )
+        ttk.Entry(quadro, textvariable=self._var_tabela).pack(fill="x")
 
-        linha3 = ttk.Frame(quadro)
-        linha3.pack(fill="x", pady=(10, 0))
+        opcoes = ttk.Frame(quadro, style="Cartao.TFrame")
+        opcoes.pack(fill="x", pady=(10, 0))
         self._var_modo = tk.StringVar(value=ModoImportacao.SUBSTITUIR.value)
         ttk.Radiobutton(
-            linha3, text=SecaoPlanilha.OPCAO_SUBSTITUIR, variable=self._var_modo,
+            opcoes, text=SecaoPlanilha.OPCAO_SUBSTITUIR, variable=self._var_modo,
             value=ModoImportacao.SUBSTITUIR.value,
         ).pack(anchor="w")
         ttk.Radiobutton(
-            linha3, text=SecaoPlanilha.OPCAO_ADICIONAR,
+            opcoes, text=SecaoPlanilha.OPCAO_ADICIONAR,
             variable=self._var_modo, value=ModoImportacao.ADICIONAR.value,
         ).pack(anchor="w")
 
-        ttk.Button(quadro, text=SecaoPlanilha.BOTAO_IMPORTAR, command=self._iniciar_importacao).pack(
-            pady=(12, 0), fill="x"
-        )
+        ttk.Button(
+            quadro, text=SecaoPlanilha.BOTAO_IMPORTAR, style="Principal.TButton", command=self._iniciar_importacao
+        ).pack(pady=(14, 0), fill="x")
 
     def _montar_secao_log(self) -> None:
-        quadro = ttk.LabelFrame(self, text=SecaoLog.TITULO, padding=10)
-        quadro.pack(fill="both", expand=True, padx=10, pady=(5, 10))
-        self._texto_log = tk.Text(quadro, height=12, state="disabled", wrap="word")
+        quadro = self._criar_cartao("3", SecaoLog.TITULO, expandir=True)
+        self._texto_log = tk.Text(
+            quadro, height=8, state="disabled", wrap="word", font=_FONTE_LOG,
+            background="#F9FAFB", foreground="#1F2937", relief="flat", padx=12, pady=10,
+            highlightthickness=1, highlightbackground=_COR_BORDA, highlightcolor=_COR_BORDA,
+        )
         self._texto_log.pack(fill="both", expand=True)
 
     # estado / conexao
@@ -155,6 +234,7 @@ class JanelaImportador(tk.Tk):
         )
         if caminho:
             self._caminho_planilha.set(caminho)
+            self._rotulo_planilha.set(Path(caminho).name)
             if not self._var_tabela.get():
                 self._var_tabela.set(normalizar_nome_coluna(Path(caminho).stem))
 
@@ -263,7 +343,7 @@ class JanelaImportador(tk.Tk):
             self._log("=" * 60)
             servico.importar(config, caminho, tabela, modo, log=self._log)
         except Exception as erro:  # noqa: BLE001 - mostrado no log pro usuario final, nao tecnico
-            self._log(f"ERRO: {banco.mensagem_amigavel(erro)}")
+            self._log(f"{Progresso.ERRO}: {banco.mensagem_amigavel(erro)}")
 
 
 def executar() -> None:

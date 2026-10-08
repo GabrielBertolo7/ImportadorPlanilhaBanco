@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 
 from .config import ConfiguracaoConexao
+from .textos import Progresso
 from .tipos import InfoTipo, TipoColuna, familia_sql, tipo_sql
 
 _TIPOS_TEXTO_PRECISAM_PREFIXO = ("text", "varchar", "char", "mediumtext", "longtext", "tinytext")
@@ -152,7 +153,7 @@ class TabelaRepository:
         with self._engine.begin() as conexao:
             if not inspector.has_table(self._tabela):
                 self._criar(conexao, tipos)
-                log(f"Tabela '{self._tabela}' criada com {len(tipos)} colunas.")
+                log(Progresso.tabela_criada(self._tabela, len(tipos)))
                 return
 
             colunas_existentes = {c["name"]: c["type"] for c in inspector.get_columns(self._tabela)}
@@ -162,14 +163,14 @@ class TabelaRepository:
                     conexao.execute(text(
                         f"ALTER TABLE `{self._tabela}` ADD COLUMN `{coluna}` {sql_tipo} DEFAULT NULL"
                     ))
-                    log(f"Coluna '{coluna}' adicionada em '{self._tabela}' como {sql_tipo}.")
+                    log(Progresso.coluna_adicionada(coluna, self._tabela, sql_tipo))
                 elif corrigir_tipo_existente:
                     tipo_atual = colunas_existentes[coluna]
                     if familia_sql(tipo_atual) != tipo:
                         conexao.execute(text(
                             f"ALTER TABLE `{self._tabela}` MODIFY COLUMN `{coluna}` {sql_tipo} DEFAULT NULL"
                         ))
-                        log(f"Coluna '{coluna}' em '{self._tabela}' alterada de {tipo_atual} para {sql_tipo}.")
+                        log(Progresso.coluna_alterada(coluna, self._tabela, tipo_atual, sql_tipo))
 
     def _criar(self, conexao, tipos: dict[str, tuple[TipoColuna, InfoTipo]]) -> None:
         definicoes = ",\n  ".join(
@@ -207,6 +208,6 @@ class TabelaRepository:
                     conexao.execute(text(
                         f"ALTER TABLE `{self._tabela}` ADD {tipo_indice} `{nome_indice}` ({expressao_coluna})"
                     ))
-                log(f"Índice criado: {self._tabela}.{coluna} ({tipo_indice}).")
+                log(Progresso.indice_criado(self._tabela, coluna, tipo_indice))
             except OperationalError as erro:
-                log(f"Não foi possível criar índice em {self._tabela}.{coluna} (seguindo sem ele): {erro}")
+                log(Progresso.indice_falhou(self._tabela, coluna, erro))
